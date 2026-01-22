@@ -1,4 +1,4 @@
-import { RequestArguments } from "../provider";
+import { RequestArguments } from "../types";
 
 export const rpc = async(url: string, args: RequestArguments) => {
   const response = await fetch(url, {

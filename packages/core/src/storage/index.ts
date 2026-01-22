@@ -1,4 +1,4 @@
-export const prefix = "HoT";
+export const prefix = "imTokenWeb";
 export type Key = "accounts" | "activeChainId" | "availableChainList" | "url";
 export const getKey = (key: Key) => {
   return `${prefix}:${key}`;
