@@ -1,18 +1,38 @@
+import { EventEmitter } from "eventemitter3";
 import {
-  ProviderEventEmitter,
+  ProviderEventMap,
   ProviderRpcError,
   RequestArguments,
   WalletRpcMethod,
   Chain,
-} from "./types";
-import { ICommunicator } from "./communication";
-import { rpc } from "./utils";
-import {
-  getKey,
-  getLocalStorage,
-  setLocalStorage,
-} from "./storage";
-import { ALLOWED_CHAINS } from "./shared";
+} from "../types";
+import { ICommunicator } from "../communication";
+import { rpc } from "../utils";
+import { getKey, getLocalStorage, setLocalStorage } from "../storage";
+import { ALLOWED_CHAINS } from "../constants";
+
+class ProviderEventEmitter extends EventEmitter<keyof ProviderEventMap> {
+  public emit<K extends keyof ProviderEventMap>(
+    event: K,
+    payload: ProviderEventMap[K]
+  ): boolean {
+    return super.emit(event, payload as never);
+  }
+
+  public on<K extends keyof ProviderEventMap>(
+    event: K,
+    listener: (payload: ProviderEventMap[K]) => void
+  ): this {
+    return super.on(event, listener as never);
+  }
+
+  public off<K extends keyof ProviderEventMap>(
+    event: K,
+    listener: (payload: ProviderEventMap[K]) => void
+  ): this {
+    return super.off(event, listener as never);
+  }
+}
 
 export interface BaseProviderOptions {
   communicator: ICommunicator;
@@ -69,10 +89,7 @@ export abstract class BaseProvider extends ProviderEventEmitter {
     const sendHandshake = () => {
       if (this.communicator.connect) {
         this.communicator.connect().catch((error) => {
-          console.warn(
-            "[BaseProvider] Failed to send handshake:",
-            error
-          );
+          console.warn("[BaseProvider] Failed to send handshake:", error);
         });
       }
     };
@@ -82,9 +99,7 @@ export abstract class BaseProvider extends ProviderEventEmitter {
     } else {
       window.addEventListener(
         "load",
-        () => {
-          setTimeout(sendHandshake, 50);
-        },
+        () => setTimeout(sendHandshake, 50),
         { once: true }
       );
     }
@@ -97,7 +112,7 @@ export abstract class BaseProvider extends ProviderEventEmitter {
       this.accounts.length === 0 &&
       args.method !== WalletRpcMethod.eth_requestAccounts
     ) {
-      throw new Error("Should request accounts before sending request");
+      throw this.createRpcError(-32002, "Should request accounts before sending request");
     }
 
     try {
@@ -159,7 +174,7 @@ export abstract class BaseProvider extends ProviderEventEmitter {
       if (Array.isArray(accounts) && accounts.length > 0) {
         this.emit("accountsChanged", accounts);
         if (!this.hasEmittedConnect) {
-          this.emit("connect", { chainId: `0x${this.chain.id.toString(16)}` });
+          this.emit("connect", { chainId: this.formatChainId(this.chain.id) });
           this.hasEmittedConnect = true;
         }
       }
@@ -168,19 +183,19 @@ export abstract class BaseProvider extends ProviderEventEmitter {
     }
   }
 
-  protected getAccounts() {
+  protected getAccounts(): string[] {
     return this.accounts;
   }
 
-  protected getChainId() {
+  protected getChainId(): number {
     return this.chain.id;
   }
 
   protected async handleRequestAccounts(
     request: RequestArguments
-  ): Promise<unknown> {
-    // @ts-ignore 兼容外部传入 chainId
-    const requestChainId = request?.params?.chainId;
+  ): Promise<string[]> {
+    // 兼容外部传入 chainId
+    const requestChainId = (request?.params as { chainId?: number })?.chainId;
     if (requestChainId) {
       const chain = this.allowedChains.find((c) => c.id === requestChainId);
       if (chain) {
@@ -202,47 +217,52 @@ export abstract class BaseProvider extends ProviderEventEmitter {
 
     this.emit("accountsChanged", this.accounts);
     if (!this.hasEmittedConnect) {
-      this.emit("connect", { chainId: `0x${this.chain.id.toString(16)}` });
+      this.emit("connect", { chainId: this.formatChainId(this.chain.id) });
       this.hasEmittedConnect = true;
     }
 
     return this.accounts;
   }
 
-  protected async handleSwitchChain(request: RequestArguments) {
+  protected handleSwitchChain(request: RequestArguments): null {
     if (
       !Array.isArray(request.params) ||
       request.params.length === 0 ||
       !("chainId" in request.params[0])
     ) {
-      return {
-        code: -32602,
-        message: "Invalid request params",
-      };
+      throw this.createRpcError(-32602, "Invalid request params");
     }
 
-    const { chainId: chainIdHex } = request?.params?.[0] as {
-      chainId: string;
-    };
+    const { chainId: chainIdHex } = request.params[0] as { chainId: string };
     const chainId = parseInt(chainIdHex, 16);
 
     const isChainAvailable = this.updateChain(chainId);
-    if (isChainAvailable) {
-      return null;
+    if (!isChainAvailable) {
+      throw this.createRpcError(4902, "Unrecognized or unsupported chain ID.");
     }
 
-    return {
-      code: 4902,
-      message: "Unrecognized or unsupported chain ID.",
-    };
+    return null;
   }
 
+  /**
+   * 创建标准的 RPC 错误
+   */
+  protected createRpcError(code: number, message: string): ProviderRpcError {
+    const error = new Error(message) as ProviderRpcError;
+    error.code = code;
+    return error;
+  }
+
+  /**
+   * 包装错误为标准 RPC 错误格式
+   */
   protected wrapError(error: unknown): ProviderRpcError {
     if (error instanceof Error) {
+      const rpcError = error as ProviderRpcError;
       return {
         ...error,
-        code: (error as any).code || -32603,
-        data: (error as any).data,
+        code: rpcError.code ?? -32603,
+        data: rpcError.data,
       };
     }
     return {
@@ -253,9 +273,16 @@ export abstract class BaseProvider extends ProviderEventEmitter {
     };
   }
 
-  protected updateChain(chainId: number) {
+  /**
+   * 格式化 chainId 为十六进制字符串
+   */
+  protected formatChainId(chainId: number): string {
+    return `0x${chainId.toString(16)}`;
+  }
+
+  protected updateChain(chainId: number): boolean {
     const availableChainList =
-      getLocalStorage(getKey("availableChainList")) ??
+      getLocalStorage<Chain[]>(getKey("availableChainList")) ??
       this.allowedChains.map(({ id, rpcUrl }) => ({ id, rpcUrl }));
 
     const matched = availableChainList.find(
@@ -270,7 +297,7 @@ export abstract class BaseProvider extends ProviderEventEmitter {
     setLocalStorage(getKey("activeChainId"), matched);
 
     if (changed) {
-      this.emit("chainChanged", `0x${matched.id.toString(16)}`);
+      this.emit("chainChanged", this.formatChainId(matched.id));
     }
 
     return true;

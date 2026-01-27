@@ -1,19 +1,27 @@
 {
-  "name": "webapp-sdk-workspace",
-  "private": true,
+  "name": "@consenlabs/imtoken-connect",
   "version": "0.1.1",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
   "packageManager": "pnpm@9.15.9+sha512.68046141893c66fad01c079231128e9afb89ef87e2691d69e4d40eee228988295fd4682181bae55b58418c3a253bde65a505ec7c5f9403ece5cc3cd37dcf2531",
   "scripts": {
-    "build": "pnpm -r run build",
-    "clean": "pnpm -r run clean --if-present",
-    "lint": "pnpm -r run lint --if-present",
-    "test": "pnpm -r run test --if-present",
-    "changeset": "changeset",
-    "release": "pnpm changeset publish"
+    "build": "tsc -p tsconfig.json",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "eventemitter3": "5.0.1"
   },
   "devDependencies": {
-    "@changesets/changelog-git": "0.2.0",
-    "@changesets/cli": "2.28.0",
     "@types/node": "22.7.3",
     "typescript": "5.6.2"
   }
