@@ -5,6 +5,7 @@ import type { Chain } from "./types";
  */
 export const ALLOWED_CHAINS: Chain[] = [
   { id: 42161, rpcUrl: "https://arb1.arbitrum.io/rpc" },
+  { id: 10, rpcUrl: "https://mainnet.optimism.io" },
   { id: 11155111, rpcUrl: "https://rpc.sepolia.org" },
 ];
 

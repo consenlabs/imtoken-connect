@@ -116,6 +116,7 @@ export abstract class BaseProvider extends ProviderEventEmitter {
           return this.handleSwitchChain(args);
         case WalletRpcMethod.eth_sendTransaction:
         case WalletRpcMethod.eth_signTypedData_v4:
+        case WalletRpcMethod.personal_sign:
           return this.sendRequestToWallet(args);
         case WalletRpcMethod.eth_chainId:
           return this.getChainId();
@@ -151,8 +152,8 @@ export abstract class BaseProvider extends ProviderEventEmitter {
     return this.accounts;
   }
 
-  protected getChainId(): number {
-    return this.chain.id;
+  protected getChainId(): string {
+    return this.formatChainId(this.chain.id);
   }
 
   protected async handleRequestAccounts(
