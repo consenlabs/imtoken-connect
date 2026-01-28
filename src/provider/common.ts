@@ -56,7 +56,6 @@ export class ImTokenWebProvider extends BaseProvider implements IProvider {
 
     super({
       communicator,
-      autoConnect: actualMode === "iframe",
       initialChain: ALLOWED_CHAINS[0],
       allowedChains: ALLOWED_CHAINS,
     });

@@ -1,52 +1,51 @@
 # imToken Connect
 
-面向 imToken Web 的 DApp 连接 SDK，提供安全、易用的 Web3 Provider 实现。
+A secure and easy-to-use Web3 Provider SDK for DApps connecting to imToken Web.
 
-## ✨ 特性
+## ✨ Features
 
-- 🔄 **双模式支持**：自动在 popup 和 iframe 通信模式间切换
-- 🔒 **安全可靠**：内置 origin 验证、消息源验证等多重安全机制
-- 📱 **EIP-1193 兼容**：完整实现 EIP-1193 标准，与主流 DApp 框架无缝集成
-- ⚡ **自动连接**：iframe 模式下支持自动连接，提升用户体验
-- 🔗 **多链支持**：内置多链配置，支持链切换
-- 💾 **状态管理**：自动缓存账户和链状态到 localStorage
-- 📡 **事件系统**：完整的事件系统（connect、chainChanged、accountsChanged 等）
-- 🎯 **TypeScript**：完整的类型定义，提供优秀的开发体验
+- 🔄 **Dual Mode Support**: Automatically switches between popup and iframe communication modes
+- 🔒 **Secure & Reliable**: Built-in origin verification, message source validation, and multiple security mechanisms
+- 📱 **EIP-1193 Compatible**: Fully implements the EIP-1193 standard for seamless integration with mainstream DApp frameworks
+- 🔗 **Multi-Chain Support**: Built-in multi-chain configuration with chain switching support
+- 💾 **State Management**: Automatically caches account and chain state to localStorage
+- 📡 **Event System**: Complete event system (connect, chainChanged, accountsChanged, etc.)
+- 🎯 **TypeScript**: Full type definitions for an excellent development experience
 
-## 📦 安装
+## 📦 Installation
 
 ```bash
 pnpm add @consenlabs/imtoken-connect
 ```
 
-或使用其他包管理器：
+Or using other package managers:
 
 ```bash
 npm install @consenlabs/imtoken-connect
-# 或
+# or
 yarn add @consenlabs/imtoken-connect
 ```
 
-## 🚀 快速开始
+## 🚀 Quick Start
 
-### 全功能模式（推荐）
+### Full-Featured Mode (Recommended)
 
-使用 `ImTokenWebProvider` 可自动适配运行环境：
+Use `ImTokenWebProvider` for automatic environment adaptation:
 
 ```typescript
 import { ImTokenWebProvider } from "@consenlabs/imtoken-connect";
 
-// 创建 Provider 实例
+// Create Provider instance
 const provider = new ImTokenWebProvider();
 
-// 请求连接钱包
+// Request wallet connection
 const accounts = await provider.request({ 
   method: "eth_requestAccounts" 
 });
 
 console.log("Connected accounts:", accounts);
 
-// 监听事件
+// Listen to events
 provider.on("accountsChanged", (accounts) => {
   console.log("Accounts changed:", accounts);
 });
@@ -56,15 +55,15 @@ provider.on("chainChanged", (chainId) => {
 });
 ```
 
-**自动行为**：
-- ✅ 自动检测运行环境（iframe 或主窗口）
-- ✅ iframe 环境：使用 iframe 通信，自动连接
-- ✅ 主窗口环境：使用 popup 通信，用户手动触发
-- ✅ 内置父窗口来源校验（仅允许 imToken Web 官方域名）
+**Automatic Behavior**:
+- ✅ Automatically detects runtime environment (iframe or main window)
+- ✅ iframe environment: Uses iframe communication
+- ✅ Main window environment: Uses popup communication
+- ✅ Built-in parent window origin validation (only allows official imToken Web domains)
 
-### 仅 iframe 场景
+### iframe-Only Scenario
 
-如果你的 DApp 确定只会在 iframe 中运行，可以使用轻量级的 `ImTokenWebIframeProvider`：
+If your DApp will only run in an iframe, you can use the lightweight `ImTokenWebIframeProvider`:
 
 ```typescript
 import { ImTokenWebIframeProvider } from "@consenlabs/imtoken-connect";
@@ -72,146 +71,146 @@ import { ImTokenWebIframeProvider } from "@consenlabs/imtoken-connect";
 const provider = new ImTokenWebIframeProvider();
 ```
 
-**注意事项**：
-- ⚠️ 必须在 iframe 环境中运行，否则会抛出错误
-- ⚠️ 必须在受信任的父窗口中运行（imToken Web 官方域名）
+**Important Notes**:
+- ⚠️ Must run in an iframe environment, otherwise it will throw an error
+- ⚠️ Must run in a trusted parent window (official imToken Web domain)
 
-## 🔌 支持的 RPC 方法
+## 🔌 Supported RPC Methods
 
-| 方法 | 说明 | 处理方式 |
-|------|------|----------|
-| `eth_requestAccounts` | 请求连接钱包 | 通过钱包处理 |
-| `eth_accounts` | 获取已连接账户 | 本地缓存 |
-| `eth_chainId` | 获取当前链 ID | 本地缓存 |
-| `eth_sendTransaction` | 发送交易 | 通过钱包处理 |
-| `eth_signTypedData_v4` | 签名（EIP-712）| 通过钱包处理 |
-| `personal_sign` | 个人签名 | 通过钱包处理 |
-| `wallet_switchEthereumChain` | 切换链 | 本地处理 |
-| 其他方法 | 通用 RPC 调用 | 通过配置的 RPC 节点 |
+| Method | Description | Handling |
+|--------|-------------|----------|
+| `eth_requestAccounts` | Request wallet connection | Handled by wallet |
+| `eth_accounts` | Get connected accounts | Local cache |
+| `eth_chainId` | Get current chain ID | Local cache |
+| `eth_sendTransaction` | Send transaction | Handled by wallet |
+| `eth_signTypedData_v4` | Sign (EIP-712) | Handled by wallet |
+| `personal_sign` | Personal signature | Handled by wallet |
+| `wallet_switchEthereumChain` | Switch chain | Handled locally |
+| Other methods | Generic RPC calls | Via configured RPC nodes |
 
-## 🏗️ 架构设计
+## 🏗️ Architecture
 
-### 项目结构
+### Project Structure
 
 ```
 src/
-├── communication/        # 通信层
-│   ├── base.ts          # 通信器基类
-│   ├── iframe.ts        # iframe 通信实现
-│   ├── popup.ts         # popup 通信实现
-│   └── index.ts         # 通信层导出
-├── provider/            # Provider 层
-│   ├── base.ts          # Provider 基类
-│   ├── common.ts        # 全功能 Provider
-│   ├── iframe.ts        # iframe 专用 Provider
-│   └── index.ts         # Provider 导出
-├── storage/             # 存储层
-│   └── index.ts         # localStorage/sessionStorage 封装
-├── utils/               # 工具函数
-│   └── index.ts         # RPC 调用等工具
-├── types.ts             # 类型定义
-├── constants.ts         # 常量配置
-└── index.ts             # SDK 入口
+├── communication/        # Communication layer
+│   ├── base.ts          # Communicator base class
+│   ├── iframe.ts        # iframe communication implementation
+│   ├── popup.ts         # popup communication implementation
+│   └── index.ts         # Communication layer exports
+├── provider/            # Provider layer
+│   ├── base.ts          # Provider base class
+│   ├── common.ts        # Full-featured Provider
+│   ├── iframe.ts        # iframe-specific Provider
+│   └── index.ts         # Provider exports
+├── storage/             # Storage layer
+│   └── index.ts         # localStorage/sessionStorage wrapper
+├── utils/               # Utility functions
+│   └── index.ts         # RPC calls and other utilities
+├── types.ts             # Type definitions
+├── constants.ts         # Constants configuration
+└── index.ts             # SDK entry point
 ```
 
-### 架构分层
+### Architecture Layers
 
 ```
 ┌─────────────────────────────────────┐
-│         Provider Layer              │  ← EIP-1193 接口
+│         Provider Layer              │  ← EIP-1193 Interface
 │  (BaseProvider, ImTokenWebProvider) │
 ├─────────────────────────────────────┤
-│      Communication Layer            │  ← 消息通信
+│      Communication Layer            │  ← Message Communication
 │  (IframeCommunicator, PopupComm.)   │
 ├─────────────────────────────────────┤
-│        Storage Layer                │  ← 状态缓存
+│        Storage Layer                │  ← State Caching
 │  (localStorage, sessionStorage)     │
 └─────────────────────────────────────┘
 ```
 
-### 通信模式
+### Communication Modes
 
-#### Popup 模式
-
-```
-DApp (主窗口)  ←→  Popup 窗口 (钱包)
-     │                   │
-     └──── postMessage ──┘
-```
-
-- 用户主动触发时打开 popup 窗口
-- 通过 `window.postMessage` 通信
-- 适用于非嵌入式 DApp
-
-#### iframe 模式
+#### Popup Mode
 
 ```
-imToken Web (父窗口)
-    └── iframe (DApp)  ←→  父窗口 (钱包)
-             │                │
-             └── postMessage ──┘
+DApp (Main Window)  ←→  Popup Window (Wallet)
+     │                        │
+     └────── postMessage ─────┘
 ```
 
-- DApp 嵌入在 imToken Web 中
-- 通过 `parent.postMessage` 通信
+- Opens popup window on user action
+- Communicates via `window.postMessage`
+- Suitable for non-embedded DApps
 
-## 🔒 安全特性
+#### iframe Mode
 
-### 1. Origin 验证
+```
+imToken Web (Parent Window)
+    └── iframe (DApp)  ←→  Parent Window (Wallet)
+             │                   │
+             └──── postMessage ──┘
+```
 
-所有 postMessage 通信都会验证消息来源的 origin：
+- DApp is embedded in imToken Web
+- Communicates via `parent.postMessage`
+
+## 🔒 Security Features
+
+### 1. Origin Verification
+
+All postMessage communications verify the message origin:
 
 ```typescript
-// 内置允许的 origin 列表
+// Built-in allowed origins list
 const ALLOWED_ORIGINS = [
   "https://web.token.im",
   "https://web.qianbao.io",
   "https://web.imstaging.works",
-  // ... 更多官方域名
+  // ... more official domains
 ];
 ```
 
-### 2. 消息源验证
+### 2. Message Source Verification
 
-除了 origin 验证，还会验证消息来源窗口是否是预期的窗口，防止同源攻击。
+In addition to origin verification, validates that the message source window is the expected window to prevent same-origin attacks.
 
-### 3. 环境检测
+### 3. Environment Detection
 
-`ImTokenWebIframeProvider` 会验证运行环境：
+`ImTokenWebIframeProvider` validates the runtime environment:
 
-- ✅ 必须在 iframe 中运行
-- ✅ 父窗口必须是受信任的 origin
-- ❌ 不符合条件时立即抛出错误
+- ✅ Must run in an iframe
+- ✅ Parent window must be a trusted origin
+- ❌ Throws error immediately if conditions are not met
 
-### 4. 具名 Target Origin
+### 4. Named Target Origin
 
-所有 postMessage 都使用具体的 targetOrigin，不使用通配符 `*`。
+All postMessage calls use specific targetOrigin, never uses wildcard `*`.
 
-### 5. 请求 ID 验证
+### 5. Request ID Verification
 
-每个请求都带有唯一的 UUID，响应必须匹配请求 ID。
+Each request carries a unique UUID, and responses must match the request ID.
 
-## 🛠️ 开发
+## 🛠️ Development
 
-### 构建
+### Build
 
 ```bash
 pnpm build
 ```
 
-### 清理
+### Clean
 
 ```bash
 pnpm clean
 ```
 
-## 📝 常见问题
+## 📝 FAQ
 
-### 1. 如何判断使用哪个 Provider？
+### 1. How to decide which Provider to use?
 
-- **使用 ImTokenWebProvider**：适用于大多数场景，自动适配环境
-- **使用 ImTokenWebIframeProvider**：确定只在 iframe 中运行，且需要自定义链配置
+- **Use ImTokenWebProvider**: Suitable for most scenarios, automatically adapts to environment
+- **Use ImTokenWebIframeProvider**: When you're certain the DApp will only run in iframe and need custom chain configuration
 
-### 2. 错误："This provider can only be used when the DApp is embedded in an iframe"
+### 2. Error: "This provider can only be used when the DApp is embedded in an iframe"
 
-这是因为使用了 `ImTokenWebIframeProvider` 但不在 iframe 环境中。请改用 `ImTokenWebProvider`。
+This is because you're using `ImTokenWebIframeProvider` but not in an iframe environment. Please use `ImTokenWebProvider` instead.

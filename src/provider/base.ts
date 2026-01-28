@@ -38,22 +38,18 @@ export interface BaseProviderOptions {
   communicator: ICommunicator;
   /** 默认链，若本地无缓存则使用 */
   initialChain?: Chain;
-  /** 自动连接开关，默认为 true */
-  autoConnect?: boolean;
   /** 允许的链列表，默认使用 ALLOWED_CHAINS */
   allowedChains?: Chain[];
 }
 
 /**
- * 提供账户/链状态、autoConnect、错误包装等公共逻辑。
+ * 提供账户/链状态、错误包装等公共逻辑。
  * 具体通信方式由子类实现 ensureCommunicationReady。
  */
 export abstract class BaseProvider extends ProviderEventEmitter {
   protected readonly communicator: ICommunicator;
   protected accounts: string[] = [];
   protected chain: Chain;
-  protected autoConnectEnabled: boolean;
-  protected autoConnectRequested = false;
   protected hasEmittedConnect = false;
   protected readonly allowedChains: Chain[];
 
@@ -62,13 +58,11 @@ export abstract class BaseProvider extends ProviderEventEmitter {
     const {
       communicator,
       initialChain = ALLOWED_CHAINS[0],
-      autoConnect = true,
       allowedChains = ALLOWED_CHAINS,
     } = options;
 
     this.communicator = communicator;
     this.allowedChains = allowedChains;
-    this.autoConnectEnabled = autoConnect;
 
     this.accounts = getLocalStorage(getKey("accounts")) ?? [];
     this.chain = getLocalStorage(getKey("activeChainId")) ?? initialChain;
@@ -79,7 +73,6 @@ export abstract class BaseProvider extends ProviderEventEmitter {
 
   /**
    * 在页面加载完成后调度握手逻辑
-   * 用于 iframe 模式下的自动连接
    */
   protected scheduleHandshake(): void {
     if (typeof window === "undefined") {
@@ -106,8 +99,6 @@ export abstract class BaseProvider extends ProviderEventEmitter {
   }
 
   public async request(args: RequestArguments): Promise<unknown> {
-    await this.ensureAutoConnect();
-
     if (
       this.accounts.length === 0 &&
       args.method !== WalletRpcMethod.eth_requestAccounts
@@ -154,33 +145,6 @@ export abstract class BaseProvider extends ProviderEventEmitter {
     }
 
     return response.result;
-  }
-
-  protected async ensureAutoConnect(): Promise<void> {
-    if (
-      !this.autoConnectEnabled ||
-      this.autoConnectRequested ||
-      this.accounts.length > 0
-    ) {
-      return;
-    }
-
-    this.autoConnectRequested = true;
-    try {
-      const accounts = (await this.handleRequestAccounts({
-        method: WalletRpcMethod.eth_requestAccounts,
-      })) as string[];
-
-      if (Array.isArray(accounts) && accounts.length > 0) {
-        this.emit("accountsChanged", accounts);
-        if (!this.hasEmittedConnect) {
-          this.emit("connect", { chainId: this.formatChainId(this.chain.id) });
-          this.hasEmittedConnect = true;
-        }
-      }
-    } catch (error) {
-      console.warn("[BaseProvider] auto connect failed", error);
-    }
   }
 
   protected getAccounts(): string[] {

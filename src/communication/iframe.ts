@@ -17,47 +17,50 @@ export function isInIframe(): boolean {
 export class IframeCommunicator extends BaseCommunicator {
   private readonly allowedOrigins: string[] = ALLOWED_ORIGINS;
   private isConnected = false;
-  private readonly parentOrigin: string | null;
+  private parentOrigin: string | null;
+  private isOriginDiscovered = false;
 
   constructor() {
     super();
-    // 在构造时获取并缓存父窗口 origin
-    this.parentOrigin = this.getParentOrigin();
     
-    // 立即验证环境安全性
-    this.validateEnvironment();
+    // 尝试从 document.referrer 获取 parent origin
+    this.parentOrigin = this.getParentOriginFromReferrer();
+    
+    // 如果成功获取到 origin，立即验证
+    if (this.parentOrigin) {
+      this.validateParentOrigin(this.parentOrigin);
+      this.isOriginDiscovered = true;
+    } else {
+      // 无法从 referrer 获取，将在握手时动态发现
+      console.warn(
+        "[IframeCommunicator] Cannot determine parent origin from document.referrer. " +
+        "Will discover origin during handshake from first message."
+      );
+    }
   }
 
   /**
-   * 获取父窗口的 origin（仅在构造时调用一次）
+   * 从 document.referrer 获取父窗口的 origin
+   * 注意：在严格的 Referrer Policy 下，document.referrer 可能为空
    */
-  private getParentOrigin(): string | null {
+  private getParentOriginFromReferrer(): string | null {
     try {
-      // 使用 document.referrer 获取父窗口 origin
       if (document.referrer) {
         return new URL(document.referrer).origin;
       }
-      return null;
     } catch (error) {
-      console.error("[IframeCommunicator] Failed to parse parent origin:", error);
-      return null;
+      console.error("[IframeCommunicator] Failed to parse document.referrer:", error);
     }
+    return null;
   }
 
   /**
-   * 验证运行环境是否安全
+   * 验证 parent origin 是否在允许列表中
    */
-  private validateEnvironment(): void {
-    if (!this.parentOrigin) {
+  private validateParentOrigin(origin: string): void {
+    if (!this.allowedOrigins.includes(origin)) {
       throw new Error(
-        "[IframeCommunicator] Security Error: Cannot determine parent window origin. " +
-        "This provider should only be used when embedded in a trusted parent window."
-      );
-    }
-    
-    if (!this.isValidOrigin(this.parentOrigin)) {
-      throw new Error(
-        `[IframeCommunicator] Security Error: Untrusted parent origin "${this.parentOrigin}". ` +
+        `[IframeCommunicator] Security Error: Untrusted parent origin "${origin}". ` +
         `Allowed origins: ${this.allowedOrigins.join(", ")}`
       );
     }
@@ -67,16 +70,36 @@ export class IframeCommunicator extends BaseCommunicator {
    * 发送消息给父窗口（使用缓存的 origin）
    */
   public postMessage(message: Message): void {
-    // parentOrigin 已在构造函数中验证，这里直接使用
-    // 使用非空断言是安全的，因为构造函数中会抛出错误
-    window.parent.postMessage(message, this.parentOrigin!);
+    if (!this.parentOrigin) {
+      throw new Error(
+        "[IframeCommunicator] Cannot send message: parent origin not yet discovered. " +
+        "Please wait for connection to be established."
+      );
+    }
+    window.parent.postMessage(message, this.parentOrigin);
   }
 
   /**
    * 验证消息来源 origin 是否在允许列表中
+   * 如果 origin 尚未确定（referrer 为空的情况），会通过握手动态发现
    */
   protected isValidOrigin(origin: string): boolean {
-    return this.allowedOrigins.includes(origin);
+    // 如果已经发现了 origin，直接验证是否匹配
+    if (this.isOriginDiscovered) {
+      return origin === this.parentOrigin;
+    }
+
+    // 握手发现：检查 origin 是否在允许列表中
+    if (this.allowedOrigins.includes(origin)) {
+      // 动态发现并缓存 parent origin
+      this.parentOrigin = origin;
+      this.isOriginDiscovered = true;
+      console.log(`[IframeCommunicator] Discovered parent origin via handshake: ${origin}`);
+      return true;
+    }
+
+    // origin 不在白名单中，拒绝
+    return false;
   }
 
   /**
@@ -94,20 +117,46 @@ export class IframeCommunicator extends BaseCommunicator {
 
   /**
    * 建立连接（发送握手消息）
+   * 如果 origin 尚未确定（referrer 为空），会等待父窗口的第一条消息来发现 origin
    */
   public async connect(): Promise<void> {
     if (this.isConnected) return;
 
-    // parentOrigin 已在构造函数中验证，直接发送握手消息
-    this.postMessage({ event: "IframeLoaded" } as Message);
-    this.isConnected = true;
+    // 如果已经知道 parent origin，直接发送握手消息
+    if (this.parentOrigin) {
+      this.postMessage({ event: "IframeLoaded" } as Message);
+      this.isConnected = true;
+      return;
+    }
+
+    // 握手发现：等待父窗口的第一条消息来发现 origin
+    console.log("[IframeCommunicator] Waiting for parent window handshake...");
+    
+    // 等待任意来自父窗口的消息（isValidOrigin 会自动发现并缓存 origin）
+    await this.onMessage(() => true);
+    
+    // 发现 origin 后，发送握手响应
+    if (this.parentOrigin) {
+      this.postMessage({ event: "IframeLoaded" } as Message);
+      this.isConnected = true;
+      console.log("[IframeCommunicator] Handshake completed");
+    } else {
+      throw new Error("[IframeCommunicator] Failed to discover parent origin during handshake");
+    }
   }
 
   /**
    * 断开连接
    */
   public disconnect(): void {
-    this.postMessage({ event: "IframeUnload" } as Message);
+    // 只有在已建立连接且知道 parent origin 时才发送断开消息
+    if (this.parentOrigin && this.isConnected) {
+      try {
+        this.postMessage({ event: "IframeUnload" } as Message);
+      } catch (error) {
+        console.error("[IframeCommunicator] Failed to send disconnect message:", error);
+      }
+    }
     this.clearAllListeners("Connection closed");
     this.isConnected = false;
   }

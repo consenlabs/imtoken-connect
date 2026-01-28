@@ -35,7 +35,6 @@ export class ImTokenWebIframeProvider extends BaseProvider implements IProvider 
 
     super({
       communicator: iframeCommunicator,
-      autoConnect: true,
       initialChain: options.initialChain ?? ALLOWED_CHAINS[0],
       allowedChains: options.allowedChains ?? ALLOWED_CHAINS,
     });
@@ -44,11 +43,6 @@ export class ImTokenWebIframeProvider extends BaseProvider implements IProvider 
 
     // 调度握手
     this.scheduleHandshake();
-
-    // 自动连接
-    if (this.autoConnectEnabled && typeof window !== "undefined") {
-      void this.ensureAutoConnect();
-    }
   }
 
   /**
