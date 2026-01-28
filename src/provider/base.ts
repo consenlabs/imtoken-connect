@@ -7,7 +7,6 @@ import {
   Chain,
 } from "../types";
 import { ICommunicator } from "../communication";
-import { rpc } from "../utils";
 import { getKey, getLocalStorage, setLocalStorage } from "../storage";
 import { ALLOWED_CHAINS } from "../constants";
 
@@ -36,10 +35,10 @@ class ProviderEventEmitter extends EventEmitter<keyof ProviderEventMap> {
 
 export interface BaseProviderOptions {
   communicator: ICommunicator;
-  /** 默认链，若本地无缓存则使用 */
-  initialChain?: Chain;
-  /** 允许的链列表，默认使用 ALLOWED_CHAINS */
-  allowedChains?: Chain[];
+  /** 默认链 ID，若本地无缓存则使用 */
+  initialChainId?: number;
+  /** 允许的链 ID 列表，默认使用 ALLOWED_CHAINS */
+  allowedChainIds?: number[];
 }
 
 /**
@@ -57,15 +56,15 @@ export abstract class BaseProvider extends ProviderEventEmitter {
     super();
     const {
       communicator,
-      initialChain = ALLOWED_CHAINS[0],
-      allowedChains = ALLOWED_CHAINS,
+      initialChainId = ALLOWED_CHAINS[0],
+      allowedChainIds = ALLOWED_CHAINS,
     } = options;
 
     this.communicator = communicator;
-    this.allowedChains = allowedChains;
+    this.allowedChains = allowedChainIds.map(id => ({ id }));
 
     this.accounts = getLocalStorage(getKey("accounts")) ?? [];
-    this.chain = getLocalStorage(getKey("activeChainId")) ?? initialChain;
+    this.chain = getLocalStorage(getKey("activeChainId")) ?? { id: initialChainId };
   }
 
   /** 子类需实现，确保通信通道就绪（popup 打开 / iframe 握手等） */
@@ -121,8 +120,7 @@ export abstract class BaseProvider extends ProviderEventEmitter {
         case WalletRpcMethod.eth_chainId:
           return this.getChainId();
         default:
-          const { result } = await rpc(this.chain.rpcUrl, args);
-          return result;
+          throw this.createRpcError(4200, "Unsupported method");
       }
     } catch (error) {
       throw this.wrapError(error);
@@ -248,7 +246,7 @@ export abstract class BaseProvider extends ProviderEventEmitter {
   protected updateChain(chainId: number): boolean {
     const availableChainList =
       getLocalStorage<Chain[]>(getKey("availableChainList")) ??
-      this.allowedChains.map(({ id, rpcUrl }) => ({ id, rpcUrl }));
+      this.allowedChains.map(({ id }) => ({ id }));
 
     const matched = availableChainList.find(
       (candidate: Chain) => candidate.id === chainId

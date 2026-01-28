@@ -1,16 +1,16 @@
 import { IframeCommunicator, isInIframe } from "../communication";
 import { BaseProvider } from "./base";
-import { Chain, IProvider } from "../types";
+import { IProvider } from "../types";
 import { ALLOWED_CHAINS } from "../constants";
 
 /**
  * iframe 专用 Provider 配置选项
  */
 export interface ImTokenWebIframeProviderOptions {
-  /** 默认链配置 */
-  initialChain?: Chain;
-  /** 支持的链列表（可用于自定义 rpcUrl） */
-  allowedChains?: Chain[];
+  /** 默认链 ID */
+  initialChainId?: number;
+  /** 支持的链 ID 列表 */
+  allowedChainIds?: number[];
 }
 
 /**
@@ -35,8 +35,8 @@ export class ImTokenWebIframeProvider extends BaseProvider implements IProvider 
 
     super({
       communicator: iframeCommunicator,
-      initialChain: options.initialChain ?? ALLOWED_CHAINS[0],
-      allowedChains: options.allowedChains ?? ALLOWED_CHAINS,
+      initialChainId: options.initialChainId ?? ALLOWED_CHAINS[0],
+      allowedChainIds: options.allowedChainIds ?? ALLOWED_CHAINS,
     });
 
     this.iframeCommunicator = iframeCommunicator;

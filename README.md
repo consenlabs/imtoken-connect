@@ -86,7 +86,7 @@ const provider = new ImTokenWebIframeProvider();
 | `eth_signTypedData_v4` | Sign (EIP-712) | Handled by wallet |
 | `personal_sign` | Personal signature | Handled by wallet |
 | `wallet_switchEthereumChain` | Switch chain | Handled locally |
-| Other methods | Generic RPC calls | Via configured RPC nodes |
+| Other methods | Unsupported | Throws error (4200) |
 
 ## 🏗️ Architecture
 
@@ -106,8 +106,6 @@ src/
 │   └── index.ts         # Provider exports
 ├── storage/             # Storage layer
 │   └── index.ts         # localStorage/sessionStorage wrapper
-├── utils/               # Utility functions
-│   └── index.ts         # RPC calls and other utilities
 ├── types.ts             # Type definitions
 ├── constants.ts         # Constants configuration
 └── index.ts             # SDK entry point
@@ -209,7 +207,7 @@ pnpm clean
 ### 1. How to decide which Provider to use?
 
 - **Use ImTokenWebProvider**: Suitable for most scenarios, automatically adapts to environment
-- **Use ImTokenWebIframeProvider**: When you're certain the DApp will only run in iframe and need custom chain configuration
+- **Use ImTokenWebIframeProvider**: When you're certain the DApp will only run in iframe (more lightweight)
 
 ### 2. Error: "This provider can only be used when the DApp is embedded in an iframe"
 

@@ -56,8 +56,8 @@ export class ImTokenWebProvider extends BaseProvider implements IProvider {
 
     super({
       communicator,
-      initialChain: ALLOWED_CHAINS[0],
-      allowedChains: ALLOWED_CHAINS,
+      initialChainId: ALLOWED_CHAINS[0],
+      allowedChainIds: ALLOWED_CHAINS,
     });
 
     this.mode = actualMode;

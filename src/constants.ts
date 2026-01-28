@@ -1,12 +1,11 @@
-import type { Chain } from "./types";
-
 /**
- * 支持的链配置列表
+ * 支持的链 ID 列表
  */
-export const ALLOWED_CHAINS: Chain[] = [
-  { id: 42161, rpcUrl: "https://arb1.arbitrum.io/rpc" },
-  { id: 10, rpcUrl: "https://mainnet.optimism.io" },
-  { id: 11155111, rpcUrl: "https://rpc.sepolia.org" },
+export const ALLOWED_CHAINS: number[] = [
+  42161, // Arbitrum One
+  10,    // Optimism
+  1,     // Mainnet
+  11155111, // Sepolia
 ];
 
 /**

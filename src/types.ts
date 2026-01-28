@@ -21,7 +21,6 @@ export interface RequestArguments {
 
 export interface Chain {
   id: number;
-  rpcUrl: string;
 }
 
 // ============================================================================

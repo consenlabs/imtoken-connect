@@ -86,7 +86,7 @@ const provider = new ImTokenWebIframeProvider();
 | `eth_signTypedData_v4` | 签名（EIP-712）| 通过钱包处理 |
 | `personal_sign` | 个人签名 | 通过钱包处理 |
 | `wallet_switchEthereumChain` | 切换链 | 本地处理 |
-| 其他方法 | 通用 RPC 调用 | 通过配置的 RPC 节点 |
+| 其他方法 | 不支持 | 抛出错误 (4200) |
 
 ## 🏗️ 架构设计
 
@@ -106,8 +106,6 @@ src/
 │   └── index.ts         # Provider 导出
 ├── storage/             # 存储层
 │   └── index.ts         # localStorage/sessionStorage 封装
-├── utils/               # 工具函数
-│   └── index.ts         # RPC 调用等工具
 ├── types.ts             # 类型定义
 ├── constants.ts         # 常量配置
 └── index.ts             # SDK 入口
@@ -209,7 +207,7 @@ pnpm clean
 ### 1. 如何判断使用哪个 Provider？
 
 - **使用 ImTokenWebProvider**：适用于大多数场景，自动适配环境
-- **使用 ImTokenWebIframeProvider**：确定只在 iframe 中运行，且需要自定义链配置
+- **使用 ImTokenWebIframeProvider**：确定只在 iframe 中运行（更轻量级）
 
 ### 2. 错误："This provider can only be used when the DApp is embedded in an iframe"
 
