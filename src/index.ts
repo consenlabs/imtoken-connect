@@ -1,3 +1,2 @@
-export { HoTProvider, HoTUrl } from "./provider";
-export { Communicator } from "./communication";
-export { rpc } from "./utils";
+export { ImTokenWebProvider, ImTokenWebIframeProvider } from "./provider";
+export { IMTOKEN_WEB_URLS } from "./constants";

@@ -1,108 +1,38 @@
-import { closePopup, openPopup } from "./popup";
-import { UUID } from "crypto";
+/**
+ * 通信层入口
+ */
 
-export interface ProviderRpcError extends Error {
-  code: number;
-  data?: unknown;
-}
-export interface JsonRpcResponse {
-  id?: UUID | number;
-  result?: unknown; // REQUIRED on success
-  error?: ProviderRpcError; // REQUIRED on error
-}
+import type { Message } from "../types";
 
-export interface Message extends JsonRpcResponse {
-  id: UUID;
-  chainId: number;
-  method?: string;
-  params?: unknown[] | object;
-  event?: string;
-  result?: unknown;
-}
+export { BaseCommunicator } from "./base";
+export { IframeCommunicator, isInIframe } from "./iframe";
+export { PopupCommunicator, openPopup, closePopup } from "./popup";
 
-export interface ConfigMessage extends Message {
-  event: "PopupLoaded" | "PopupUnload";
-}
+/**
+ * 通信模式
+ */
+export type CommunicationMode = "popup" | "iframe";
 
-export class Communicator {
-  private readonly url: URL;
-  private popup: Window | null = null;
-  private listeners = new Map<
-    (_: MessageEvent) => void,
-    { reject: (_: Error) => void }
-  >();
+/**
+ * 通信器接口
+ * 定义所有通信器必须实现的方法
+ */
+export interface ICommunicator {
+  /** 发送消息 */
+  postMessage(message: Message): void | Promise<void>;
 
-  constructor(url: string) {
-    this.url = new URL(url);
-  }
+  /** 发送请求并等待响应 */
+  postRequestAndWaitForResponse<M extends Message>(request: Message): Promise<M>;
 
-  public async postMessage(message: Message) {
-    console.log("postMessage", message);
-    const popup = await this.waitForPopupLoaded();
-    popup.postMessage(message, this.url.origin);
-  }
+  /** 监听符合条件的消息 */
+  onMessage<M extends Message>(predicate: (msg: Partial<M>) => boolean): Promise<M>;
 
-  public async postRequestAndWaitForResponse<M extends Message>(
-    request: Message
-  ): Promise<M> {
-    console.log("postRequestAndWaitForResponse", request);
-    const responsePromise = this.onMessage<M>(({ id }) => id === request.id);
-    await this.postMessage(request);
-    return await responsePromise;
-  }
+  /** 建立连接（可选，iframe 模式使用） */
+  connect?(): Promise<void>;
 
-  public async onMessage<M extends Message>(
-    predicate: (_: Partial<M>) => boolean
-  ): Promise<M> {
-    return new Promise((resolve, reject) => {
-      const listener = (event: MessageEvent<M>) => {
-        if (event.origin !== this.url.origin) return;
-        const message = event.data;
-        if (predicate(message)) {
-          resolve(message);
-          window.removeEventListener("message", listener);
-          this.listeners.delete(listener);
-        }
-      };
+  /** 断开连接（可选） */
+  disconnect?(): void;
 
-      window.addEventListener("message", listener);
-      this.listeners.set(listener, { reject });
-    });
-  }
-
-  public async waitForPopupLoaded() {
-    if (this.popup && !this.popup.closed) {
-      // In case the user un-focused the popup between requests, focus it again
-      console.log("popup already loaded, but not focused");
-      this.popup.focus();
-      return this.popup;
-    }
-
-    console.log("waitForPopupLoaded...");
-    this.popup = openPopup(this.url);
-
-    this.onMessage<ConfigMessage>(({ event }) => event === "PopupUnload")
-      .then(() => this.disconnect())
-      .catch(() => {});
-
-    return this.onMessage<ConfigMessage>(({ event }) => event === "PopupLoaded")
-      .then(() => {
-        console.log("the window has been loaded!");
-      })
-      .then(() => {
-        if (!this.popup) throw new Error("Internal error: Popup is null");
-        return this.popup;
-      });
-  }
-
-  private disconnect = () => {
-    closePopup(this.popup);
-    this.popup = null;
-
-    this.listeners.forEach(({ reject }, listener) => {
-      reject(new Error("Request rejected: Popup closed"));
-      window.removeEventListener("message", listener);
-    });
-    this.listeners.clear();
-  };
+  /** 等待弹窗加载（可选，popup 模式使用） */
+  waitForPopupLoaded?(): Promise<Window>;
 }
