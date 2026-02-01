@@ -1,12 +1,25 @@
+import { mainnet, arbitrum, optimism, sepolia, type Chain } from "viem/chains";
+
 /**
  * 支持的链 ID 列表
  */
 export const ALLOWED_CHAINS: number[] = [
+  1,     // Mainnet
   42161, // Arbitrum One
   10,    // Optimism
-  1,     // Mainnet
   11155111, // Sepolia
 ];
+
+/**
+ * 链 ID 到 viem Chain 配置的映射
+ * 用于创建 PublicClient 调用只读 RPC 方法
+ */
+export const VIEM_CHAINS: Record<number, Chain> = {
+  1: mainnet,
+  42161: arbitrum,
+  10: optimism,
+  11155111: sepolia,
+};
 
 /**
  * imToken Web 应用的 URL 列表

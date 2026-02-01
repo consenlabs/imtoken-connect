@@ -1,14 +1,22 @@
 import { EventEmitter } from "eventemitter3";
 import {
+  createPublicClient,
+  http,
+  type PublicClient,
+} from "viem";
+import {
   ProviderEventMap,
   ProviderRpcError,
   RequestArguments,
   WalletRpcMethod,
+  ReadOnlyRpcMethod,
   Chain,
 } from "../types";
 import { ICommunicator } from "../communication";
 import { getKey, getLocalStorage, setLocalStorage } from "../storage";
-import { ALLOWED_CHAINS } from "../constants";
+import { ALLOWED_CHAINS, VIEM_CHAINS } from "../constants";
+
+const READ_ONLY_METHODS = new Set<string>(Object.values(ReadOnlyRpcMethod));
 
 class ProviderEventEmitter extends EventEmitter<keyof ProviderEventMap> {
   public emit<K extends keyof ProviderEventMap>(
@@ -51,6 +59,8 @@ export abstract class BaseProvider extends ProviderEventEmitter {
   protected chain: Chain;
   protected hasEmittedConnect = false;
   protected readonly allowedChains: Chain[];
+  
+  private publicClients = new Map<number, PublicClient>();
 
   protected constructor(options: BaseProviderOptions) {
     super();
@@ -98,6 +108,15 @@ export abstract class BaseProvider extends ProviderEventEmitter {
   }
 
   public async request(args: RequestArguments): Promise<unknown> {
+    // 只读 RPC 方法不需要连接钱包，可以直接调用
+    if (READ_ONLY_METHODS.has(args.method)) {
+      try {
+        return await this.handleReadOnlyRpc(args);
+      } catch (error) {
+        throw this.wrapError(error);
+      }
+    }
+    
     if (
       this.accounts.length === 0 &&
       args.method !== WalletRpcMethod.eth_requestAccounts
@@ -120,7 +139,7 @@ export abstract class BaseProvider extends ProviderEventEmitter {
         case WalletRpcMethod.eth_chainId:
           return this.getChainId();
         default:
-          throw this.createRpcError(4200, "Unsupported method");
+          throw this.createRpcError(4200, `Unsupported method: ${args.method}`);
       }
     } catch (error) {
       throw this.wrapError(error);
@@ -228,6 +247,15 @@ export abstract class BaseProvider extends ProviderEventEmitter {
         data: rpcError.data,
       };
     }
+
+    if (typeof error === "object" && error !== null && "code" in error) {
+      const errorObj = error as { code: number; message?: string; data?: unknown };
+      const rpcError = new Error(errorObj.message || "Unknown error") as ProviderRpcError;
+      rpcError.code = errorObj.code;
+      rpcError.data = errorObj.data;
+      return rpcError;
+    }
+
     return {
       name: "ProviderRpcError",
       message: "Unknown error",
@@ -264,5 +292,37 @@ export abstract class BaseProvider extends ProviderEventEmitter {
     }
 
     return true;
+  }
+
+
+  private getPublicClient(): PublicClient {
+    const chainId = this.chain.id;
+    
+    if (this.publicClients.has(chainId)) {
+      return this.publicClients.get(chainId)!;
+    }
+    
+    const viemChain = VIEM_CHAINS[chainId];
+    if (!viemChain) {
+      throw this.createRpcError(4902, `Unsupported chain for RPC calls: ${chainId}`);
+    }
+    
+    const client = createPublicClient({
+      chain: viemChain,
+      transport: http(),
+    });
+    
+    this.publicClients.set(chainId, client);
+    return client;
+  }
+
+
+  private async handleReadOnlyRpc(args: RequestArguments): Promise<unknown> {
+    const client = this.getPublicClient();
+    
+    return client.request({
+      method: args.method,
+      params: args.params,
+    } as any);
   }
 }

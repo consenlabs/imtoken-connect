@@ -8,6 +8,7 @@ A secure and easy-to-use Web3 Provider SDK for DApps connecting to imToken Web.
 - 🔒 **Secure & Reliable**: Built-in origin verification, message source validation, and multiple security mechanisms
 - 📱 **EIP-1193 Compatible**: Fully implements the EIP-1193 standard for seamless integration with mainstream DApp frameworks
 - 🔗 **Multi-Chain Support**: Built-in multi-chain configuration with chain switching support
+- ⚡ **Read-Only RPC Support**: Direct RPC node calls for read-only methods (eth_call, eth_estimateGas, etc.) without wallet interaction
 - 💾 **State Management**: Automatically caches account and chain state to localStorage
 - 📡 **Event System**: Complete event system (connect, chainChanged, accountsChanged, etc.)
 - 🎯 **TypeScript**: Full type definitions for an excellent development experience
@@ -77,6 +78,8 @@ const provider = new ImTokenWebIframeProvider();
 
 ## 🔌 Supported RPC Methods
 
+### Wallet Methods (Require User Interaction)
+
 | Method | Description | Handling |
 |--------|-------------|----------|
 | `eth_requestAccounts` | Request wallet connection | Handled by wallet |
@@ -86,7 +89,29 @@ const provider = new ImTokenWebIframeProvider();
 | `eth_signTypedData_v4` | Sign (EIP-712) | Handled by wallet |
 | `personal_sign` | Personal signature | Handled by wallet |
 | `wallet_switchEthereumChain` | Switch chain | Handled locally |
-| Other methods | Unsupported | Throws error (4200) |
+
+### Read-Only RPC Methods (Direct RPC Node Calls)
+
+These methods are called directly via RPC nodes using [viem](https://viem.sh/), without requiring wallet interaction:
+
+| Method | Description |
+|--------|-------------|
+| `eth_call` | Execute a call without creating a transaction |
+| `eth_estimateGas` | Estimate gas for a transaction |
+| `eth_gasPrice` | Get current gas price |
+| `eth_getBalance` | Get account balance |
+| `eth_getBlockByNumber` | Get block by number |
+| `eth_getBlockByHash` | Get block by hash |
+| `eth_getTransactionByHash` | Get transaction by hash |
+| `eth_getTransactionReceipt` | Get transaction receipt |
+| `eth_getTransactionCount` | Get account nonce |
+| `eth_getCode` | Get contract code |
+| `eth_getLogs` | Get event logs |
+| `eth_blockNumber` | Get latest block number |
+| `eth_getStorageAt` | Get storage value |
+| `net_version` | Get network version |
+
+> **Note**: Read-only methods can be called before connecting to the wallet (`eth_requestAccounts`).
 
 ## 🏗️ Architecture
 
@@ -121,9 +146,29 @@ src/
 │      Communication Layer            │  ← Message Communication
 │  (IframeCommunicator, PopupComm.)   │
 ├─────────────────────────────────────┤
+│      RPC Layer (viem)               │  ← Read-Only RPC Calls
+│  (PublicClient for each chain)      │
+├─────────────────────────────────────┤
 │        Storage Layer                │  ← State Caching
 │  (localStorage, sessionStorage)     │
 └─────────────────────────────────────┘
+```
+
+### Request Flow
+
+```
+provider.request({ method, params })
+            │
+            ▼
+    ┌───────────────┐
+    │ Read-Only RPC │ ─── Yes ──→ viem PublicClient ──→ RPC Node
+    │    Method?    │
+    └───────┬───────┘
+            │ No
+            ▼
+    ┌───────────────┐
+    │ Wallet Method │ ──→ Communicator ──→ Wallet (Popup/Parent)
+    └───────────────┘
 ```
 
 ### Communication Modes
@@ -162,8 +207,6 @@ All postMessage communications verify the message origin:
 // Built-in allowed origins list
 const ALLOWED_ORIGINS = [
   "https://web.token.im",
-  "https://web.qianbao.io",
-  "https://web.imstaging.works",
   // ... more official domains
 ];
 ```

@@ -5,6 +5,7 @@ import type { UUID } from "crypto";
 // ============================================================================
 
 export enum WalletRpcMethod {
+  // 需要钱包处理的方法
   eth_chainId = "eth_chainId",
   eth_accounts = "eth_accounts",
   eth_requestAccounts = "eth_requestAccounts",
@@ -12,6 +13,26 @@ export enum WalletRpcMethod {
   eth_signTypedData_v4 = "eth_signTypedData_v4",
   wallet_switchEthereumChain = "wallet_switchEthereumChain",
   personal_sign = "personal_sign",
+}
+
+/**
+ * 只读 RPC 方法 - 直接调用 RPC 节点
+ */
+export enum ReadOnlyRpcMethod {
+  eth_call = "eth_call",
+  eth_estimateGas = "eth_estimateGas",
+  eth_gasPrice = "eth_gasPrice",
+  eth_getBalance = "eth_getBalance",
+  eth_getBlockByNumber = "eth_getBlockByNumber",
+  eth_getBlockByHash = "eth_getBlockByHash",
+  eth_getTransactionByHash = "eth_getTransactionByHash",
+  eth_getTransactionReceipt = "eth_getTransactionReceipt",
+  eth_getTransactionCount = "eth_getTransactionCount",
+  eth_getCode = "eth_getCode",
+  eth_getLogs = "eth_getLogs",
+  eth_blockNumber = "eth_blockNumber",
+  eth_getStorageAt = "eth_getStorageAt",
+  net_version = "net_version",
 }
 
 export interface RequestArguments {
