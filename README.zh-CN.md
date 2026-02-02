@@ -8,6 +8,7 @@
 - 🔒 **安全可靠**：内置 origin 验证、消息源验证等多重安全机制
 - 📱 **EIP-1193 兼容**：完整实现 EIP-1193 标准，与主流 DApp 框架无缝集成
 - 🔗 **多链支持**：内置多链配置，支持链切换
+- ⚡ **只读 RPC 支持**：直接调用 RPC 节点处理只读方法（eth_call、eth_estimateGas 等），无需钱包交互
 - 💾 **状态管理**：自动缓存账户和链状态到 localStorage
 - 📡 **事件系统**：完整的事件系统（connect、chainChanged、accountsChanged 等）
 - 🎯 **TypeScript**：完整的类型定义，提供优秀的开发体验
@@ -77,6 +78,8 @@ const provider = new ImTokenWebIframeProvider();
 
 ## 🔌 支持的 RPC 方法
 
+### 钱包方法（需要用户交互）
+
 | 方法 | 说明 | 处理方式 |
 |------|------|----------|
 | `eth_requestAccounts` | 请求连接钱包 | 通过钱包处理 |
@@ -86,7 +89,29 @@ const provider = new ImTokenWebIframeProvider();
 | `eth_signTypedData_v4` | 签名（EIP-712）| 通过钱包处理 |
 | `personal_sign` | 个人签名 | 通过钱包处理 |
 | `wallet_switchEthereumChain` | 切换链 | 本地处理 |
-| 其他方法 | 不支持 | 抛出错误 (4200) |
+
+### 只读 RPC 方法（直接调用 RPC 节点）
+
+以下方法通过 [viem](https://viem.sh/) 直接调用 RPC 节点，无需钱包交互：
+
+| 方法 | 说明 |
+|------|------|
+| `eth_call` | 执行调用但不创建交易 |
+| `eth_estimateGas` | 估算交易 gas |
+| `eth_gasPrice` | 获取当前 gas 价格 |
+| `eth_getBalance` | 获取账户余额 |
+| `eth_getBlockByNumber` | 通过区块号获取区块 |
+| `eth_getBlockByHash` | 通过哈希获取区块 |
+| `eth_getTransactionByHash` | 通过哈希获取交易 |
+| `eth_getTransactionReceipt` | 获取交易回执 |
+| `eth_getTransactionCount` | 获取账户 nonce |
+| `eth_getCode` | 获取合约代码 |
+| `eth_getLogs` | 获取事件日志 |
+| `eth_blockNumber` | 获取最新区块号 |
+| `eth_getStorageAt` | 获取存储值 |
+| `net_version` | 获取网络版本 |
+
+> **注意**：只读方法可以在连接钱包（`eth_requestAccounts`）之前调用。
 
 ## 🏗️ 架构设计
 
@@ -121,9 +146,28 @@ src/
 │      Communication Layer            │  ← 消息通信
 │  (IframeCommunicator, PopupComm.)   │
 ├─────────────────────────────────────┤
+│      RPC Layer (viem)               │  ← 只读 RPC 调用
+│  (每条链一个 PublicClient)           │
+├─────────────────────────────────────┤
 │        Storage Layer                │  ← 状态缓存
 │  (localStorage, sessionStorage)     │
 └─────────────────────────────────────┘
+```
+
+### 请求流程
+
+```
+provider.request({ method, params })
+            │
+            ▼
+    ┌───────────────┐
+    │  只读 RPC 方法? │ ─── 是 ──→ viem PublicClient ──→ RPC 节点
+    └───────┬───────┘
+            │ 否
+            ▼
+    ┌───────────────┐
+    │   钱包方法     │ ──→ Communicator ──→ 钱包 (Popup/父窗口)
+    └───────────────┘
 ```
 
 ### 通信模式
@@ -162,8 +206,6 @@ imToken Web (父窗口)
 // 内置允许的 origin 列表
 const ALLOWED_ORIGINS = [
   "https://web.token.im",
-  "https://web.qianbao.io",
-  "https://web.imstaging.works",
   // ... 更多官方域名
 ];
 ```

@@ -1,6 +1,6 @@
 {
   "name": "@consenlabs/imtoken-connect",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "license": "MIT",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -20,7 +20,8 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "eventemitter3": "5.0.1"
+    "eventemitter3": "5.0.1",
+    "viem": "2.31.7"
   },
   "devDependencies": {
     "@types/node": "22.7.3",
