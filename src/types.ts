@@ -67,6 +67,7 @@ export interface Message extends JsonRpcResponse {
 /** 生命周期事件类型 */
 export type LifecycleEvent =
   | "PopupLoaded"
+  | "PopupReady"
   | "PopupUnload"
   | "IframeLoaded"
   | "IframeUnload";
