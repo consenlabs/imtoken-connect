@@ -3,6 +3,7 @@ import { BaseCommunicator } from "./base";
 
 const POPUP_WIDTH = 420;
 const POPUP_HEIGHT = 540;
+const POPUP_READY_RETRY_MS = 100;
 
 export function openPopup(url: URL): Window {
   const left = (window.innerWidth - POPUP_WIDTH) / 2 + window.screenX;
@@ -37,6 +38,8 @@ export function closePopup(popup: Window | null): void {
 export class PopupCommunicator extends BaseCommunicator {
   private readonly url: URL;
   private popup: Window | null = null;
+  private popupLoadPromise: Promise<Window> | null = null;
+  private popupReadyRetry: number | null = null;
 
   constructor(url: string) {
     super();
@@ -75,30 +78,71 @@ export class PopupCommunicator extends BaseCommunicator {
     if (this.popup && !this.popup.closed) {
       // 如果弹窗已存在但未聚焦，重新聚焦
       this.popup.focus();
-      return this.popup;
+      return this.popupLoadPromise ?? this.popup;
     }
 
     this.popup = openPopup(this.url);
+    const popup = this.popup;
+
+    // Register both listeners before telling the popup it is ready. The popup
+    // can respond immediately when it already has a referrer, while a popup
+    // opened with Referrer-Policy: no-referrer needs this explicit handshake.
+    const popupLoaded = this.onMessage<ConfigMessage>(
+      ({ event }) => event === "PopupLoaded"
+    );
 
     // 监听弹窗关闭事件
-    this.onMessage<ConfigMessage>(({ event }) => event === "PopupUnload")
-      .then(() => this.disconnect())
-      .catch(() => {});
+    const popupUnloaded = this.onMessage<ConfigMessage>(
+      ({ event }) => event === "PopupUnload"
+    ).then(() => {
+      this.disconnect();
+      throw new Error("Request rejected: Popup closed");
+    });
 
-    // 等待弹窗加载完成
-    await this.onMessage<ConfigMessage>(({ event }) => event === "PopupLoaded");
+    const sendPopupReady = (): void => {
+      if (popup.closed) {
+        this.disconnect();
+        return;
+      }
+      popup.postMessage({ event: "PopupReady" }, this.url.origin);
+    };
 
-    if (!this.popup) {
+    // The wallet listener may not be registered when the popup is first
+    // opened. Retry only until it confirms readiness or the popup closes.
+    sendPopupReady();
+    this.popupReadyRetry = window.setInterval(
+      sendPopupReady,
+      POPUP_READY_RETRY_MS
+    );
+
+    this.popupLoadPromise = Promise.race([popupLoaded, popupUnloaded])
+      .then(() => popup)
+      .finally(() => {
+        this.stopPopupReadyRetry();
+        this.popupLoadPromise = null;
+      });
+
+    const loadedPopup = await this.popupLoadPromise;
+    if (!this.popup || this.popup !== loadedPopup || loadedPopup.closed) {
       throw new Error("Internal error: Popup is null");
     }
 
-    return this.popup;
+    return loadedPopup;
+  }
+
+  private stopPopupReadyRetry(): void {
+    if (this.popupReadyRetry !== null) {
+      window.clearInterval(this.popupReadyRetry);
+      this.popupReadyRetry = null;
+    }
   }
 
   /**
    * 断开连接并关闭弹窗
    */
   public disconnect = (): void => {
+    this.stopPopupReadyRetry();
+    this.popupLoadPromise = null;
     closePopup(this.popup);
     this.popup = null;
     this.clearAllListeners("Request rejected: Popup closed");
